@@ -1,93 +1,149 @@
 import express from "express";
 import cors from "cors";
+import fs from "fs";
 
-const app = express(); // app.use(express.urlencoded({
+const app = express();
 
+const PORT = 4000;
+
+// allow cors
 app.use(cors());
-// extended: true }));
 
+// populate request body
+// app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
-let tasks = [
-  { id: 1, task: "reading", hour: "22", type: "good" },
-  { id: 2, task: "writing", hour: "2", type: "bad" },
-  { id: 3, task: "poetry", hour: "44", type: "good" },
-  { id: 4, task: "novel", hour: "56", type: "bad" },
-  { id: 5, task: "task5", hour: "100", type: "good" },
-];
+
+// let tasks = [
+//   { id: 1, task: "task1", hour: 10, type: "good" },
+//   { id: 2, task: "task2", hour: 20, type: "bad" },
+//   { id: 3, task: "task3", hour: 30, type: "good" },
+// ];
+
 app.get("/", (req, res) => {
-  res.json({
+  return res.json({
     status: true,
-    message: "HELLO WORLD",
+    message: "API FOR NTDL",
   });
 });
 
-// GET all task
+// GET all tasks
 app.get("/api/v1/tasks", (req, res) => {
-  //   return res.json({
-  //     status: false,
-  //     message: "Users not found",
-  //   });
-  res.json({
+  // read tasks.json
+  let data = fs.readFileSync("./tasks.json");
+  let tasks = JSON.parse(data);
+
+  let queryType = req.query.type;
+  //   let test = req.query.test;
+  let filteredTask = [];
+  if (queryType) {
+    filteredTask = tasks.filter((t) => t.type == queryType);
+  } else {
+    filteredTask = tasks;
+  }
+
+  return res.json({
     status: true,
-    message: "Users Found",
-    tasks: tasks,
+    message: "Tasks Found",
+    tasks: filteredTask,
   });
 });
 
 // Get specific user
 app.get("/api/v1/tasks/:taskid", (req, res) => {
+  // read tasks.json
+  let data = fs.readFileSync("./tasks.json");
+  let tasks = JSON.parse(data);
+
   let id = req.params.taskid;
-  console.log("taskid: ", id);
-  let task = tasks.find((u) => u.id == id);
+
+  let task = tasks.find((t) => t.id == id);
+
   if (task) {
-    res.json({
+    return res.json({
       status: true,
-      message: "task found",
+      message: "Task found",
       task,
     });
   } else {
-    res.json({
+    return res.status(404).json({
       status: false,
-      message: "task not found",
+      message: "Task not found",
     });
   }
 });
 
-// Create user
+// Create task
 app.post("/api/v1/tasks", (req, res) => {
-  // req.body;
+  let data = fs.readFileSync("./tasks.json");
+  let tasks = JSON.parse(data);
+
   let task = req.body;
+
   tasks.push(task);
-  console.log(task);
-  res.json({
+
+  // write to file
+  fs.writeFileSync("./tasks.json", JSON.stringify(tasks));
+
+  res.status(201).json({
     status: true,
-    message: "task Created",
-    tasks,
+    message: "Task Created",
+    task,
   });
 });
 
 // update task
 app.patch("/api/v1/tasks/:taskid", (req, res) => {
+  try {
+    let data = fs.readFileSync("./tasks.json");
+    let tasks = JSON.parse(data);
+
+    let id = req.params.taskid;
+    let updatedData = req.body;
+
+    let task = tasks.find((t) => t.id == id);
+    task.type = updatedData.type;
+
+    fs.writeFileSync("./tasks.json", JSON.stringify(tasks));
+
+    return res.json({
+      status: true,
+      message: "Task updated",
+      task,
+    });
+  } catch (err) {
+    console.log(err);
+
+    return res.status(500).json({
+      status: false,
+      message: "Task could not be updated",
+      err: err.message,
+    });
+  }
+});
+
+// delete task
+app.delete("/api/v1/tasks/:taskid", (req, res) => {
+  let data = fs.readFileSync("./tasks.json");
+  let tasks = JSON.parse(data);
+
   let id = req.params.taskid;
-  let updatedData = req.body;
-  // { name: 'ghanshyam' }
-  //
-  let task = tasks.find((u) => u.id == id);
-  task.name = updatedData.name;
+
+  //   filter task with id
+  tasks = tasks.filter((u) => u.id != id);
+
+  // update file
+  fs.writeFileSync("./tasks.json", JSON.stringify(tasks));
+
   res.json({
     status: true,
-    message: "task updated",
-    task,
+    message: "Task Deleted",
   });
 });
 
-// delete user
-app.delete("/api/v1/tasks/:taskid", (req, res) => {
-  let id = req.params.taskid; //   filter user with id
-  tasks = tasks.filter((u) => u.id != id);
-  res.json({
-    status: true,
-    message: "task Deleted",
-  });
+app.listen(PORT, (err) => {
+  if (err) {
+    console.log("Server could not be started", err);
+  } else {
+    console.log("Server Started at PORT: ", PORT);
+  }
 });
-app.listen(4000);
